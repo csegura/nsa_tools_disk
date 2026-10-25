@@ -1,4 +1,4 @@
-# Z80 programs for CP/M
+# NorthStar Advantage Programs 
 
 This repository contains some Z80 programs for the CP/M operating system, that I use on my NorthStar Advantage, also a disk image called TOOLS.NSI with the tools included.
 The time goes on, and after many years using linux, I still enjoy tinkering with my NorthStar Advantage, but DIR nowadays is not something that comes from my fingers as naturally as it once did, so I wrote some tools to make my life easier when I play with it.
@@ -6,6 +6,7 @@ The time goes on, and after many years using linux, I still enjoy tinkering with
 ## Contents
 
 - [VI](#vi) - a mini vi text editor for CP/M 2.2 (there ius also a VT100 version)
+- [TERM](#term-a-serial-terminal) - serial terminal - An amazing simple terminal 
 - [URUN](#urun-a-program-from-another-user-area) - run a program from another user area
 - [NSADB](#nsadb-a-debugger) - a full-screen source-level debugger for the NorthStar Advantage
 - [MKDBG](#mkdbg-the-debug-file-made-on-the-machine) - create a debug file from the Microsoft M80 listing on the machine
@@ -401,6 +402,7 @@ larger:
 A `dd` or `yy` range larger than the yank buffer deletes or copies nothing
 into it and rings the bell.
 It does not provide binary-file editing. Interactive checks require a
+r
 CP/M emulator and an ANSI-compatible terminal; neither is installed in the
 current workspace.
 
