@@ -125,6 +125,19 @@ PROG.COM` makes the same file on the host (it is the reference of the program, a
 `tests/emu/mkdbg_m80.py` compares the two byte for byte). See [docs/mkdbg.md](docs/mkdbg.md) for
 the format of the listing and the tests.
 
+## TERM: a serial terminal
+
+`TINFO [-t]` shows the system and the boards (the six slot ids, the serial board and its status) and
+tests the serial line, for when `TERM` or `XMODEM` do not work on the machine. `TERM [-b rate] [-d bits] [-p N|E|O] [-s stops] [-x] [-e] [-h]` connects the Advantage to another computer through the serial board
+(a Raspberry Pi that runs `getty` on a USB-to-RS232 cable, for example): the keys go to the line and what
+comes from the line is shown on the screen, 23 rows of 80 columns and a status line, with the part of
+the VT100/ANSI escape sequences that a shell needs (cursor moves, erase, inverse). The rate is 9600 baud
+8N1 unless `-b` says 1200, 2400, 4800 or 19200 and `-d`, `-p` and `-s` say the data bits, parity and stop bits; `-x` uses XON/XOFF, `-e` shows what is typed. The function
+keys do local commands (F1 rate, F2 send ESC, F3 send Ctrl-C, F4 clear, F5 echo, F6 flow, F10 quit; the
+table is at the top of the source and can be changed); Ctrl-[ sends ESC. It was tested with the emulator
+only (a script plays the Pi), so the cable and the speed of the real machine are not checked. See
+[docs/term.md](docs/term.md) for the keys, the setup of the Pi and the cable.
+
 ## LS and LESS
 
 `LS` lists a disk with the names sorted. It runs on any CP/M 2.2 system.
@@ -206,10 +219,11 @@ src/vi/adv/    NorthStar Advantage build (vi_adv.asm, platform backend)
 src/urun/      URUN, a launcher for a program of another user area
 src/nsadb/     NSADB, the debugger (docs/nsadb.md)
 src/mkdbg/     MKDBG, the debug file from an M80 listing (docs/mkdbg.md)
+src/term/      TERM, a serial terminal (docs/term.md)
 src/ls/        LS, a directory listing
 src/less/      LESS, a pager for the Advantage
 src/tools/     CAT WC HEAD TAIL GREP CRLF CMP DIFF DF RM CP MV DIS XMODEM (docs/tools.md)
-src/common/    code that programs share: the Advantage screen and font, command line parsing, decimal numbers
+src/common/    code that programs share: the Advantage screen and font, the serial board, command line parsing, decimal numbers
 tools/         mkdbg.py, which makes the debug file of NSADB
                (other programs go in src/<program>/)
 docs/       nsa_dev.md, debugger.md, z80_notes.md, notes/

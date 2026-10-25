@@ -1,7 +1,7 @@
 Z80ASM ?= z80asm
 BUILD ?= build
 
-TOOLS := cat wc head tail grep crlf cmp diff df rm cp mv dis xmodem
+TOOLS := cat wc head tail grep crlf cmp diff df rm cp mv dis xmodem term
 TOOL_SRC := $(wildcard src/tools/*.asm)
 COMMON := $(wildcard src/common/*.asm)
 NSADB := $(wildcard src/nsadb/*.asm)
@@ -12,7 +12,7 @@ ASM = $(Z80ASM) -I src/vi/core -I src/vi/cpm -I src/vi/adv -I src/common
 .DEFAULT_GOAL := all
 .PHONY: all small-tools clean help
 
-all: $(BUILD)/vi_adv.com $(BUILD)/vi.com $(BUILD)/urun.com $(BUILD)/nsadb.com $(BUILD)/mkdbg.com $(BUILD)/ls.com $(BUILD)/less.com $(TOOLS:%=$(BUILD)/%.com)
+all: $(BUILD)/vi_adv.com $(BUILD)/vi.com $(BUILD)/urun.com $(BUILD)/nsadb.com $(BUILD)/mkdbg.com $(BUILD)/ls.com $(BUILD)/less.com $(BUILD)/term.com $(TOOLS:%=$(BUILD)/%.com)
 
 small-tools: $(TOOLS:%=$(BUILD)/%.com)
 
@@ -41,6 +41,9 @@ $(BUILD)/ls.com: src/ls/ls.asm $(COMMON) | $(BUILD)
 	$(Z80ASM) -I src/common -o $@ $<
 
 $(BUILD)/less.com: src/less/less.asm $(COMMON) | $(BUILD)
+	$(Z80ASM) -I src/common -o $@ $<
+
+$(BUILD)/term.com: src/term/term.asm $(COMMON) | $(BUILD)
 	$(Z80ASM) -I src/common -o $@ $<
 
 help:

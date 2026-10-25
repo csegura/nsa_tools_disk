@@ -4,7 +4,7 @@
 ;     XMODEM -s [-c] [d:]file       send the file
 ;     XMODEM -r [-c] [-f] [d:]file  receive into the file (-f replaces one that is there)
 ;
-; The line is set to 9600 baud (-b gives 19200), 8 bits, no parity, one stop bit. -c uses
+; The line is set to 9600 baud (-b gives 19200), 8 bits, no parity, two stop bits (the setup of the boot ROM). -c uses
 ; the 16 bit CRC of XMODEM-CRC in place of the one byte checksum (the receiver asks for it
 ; and the sender follows what the receiver asks for). The file is sent and received in
 ; records of 128 bytes, as CP/M has it, so a file that is received is filled with Ctrl-Z
@@ -79,12 +79,12 @@ main_wild:
         djnz    main_wild
         ld      ix,fcb
         call    fcb_clear_tail
-        call    find_board
+        call    sio_find
         jr      nc,main_board
         ld      de,msg_no_board
         jp      print
 main_board:
-        call    setup_line
+        call    sio_setup
         ld      a,(flag_send)
         or      a
         jp      nz,send_file
@@ -115,109 +115,6 @@ tool_option:
 option_set:
         ld      (hl),1
         or      a
-        ret
-
-; ---------- the board ----------
-; The identity ports 70h to 75h are those of the slots 6 to 1, whose ports are 00h-0Fh to
-; 50h-5Fh. Carry when no board is F7h.
-find_board:
-        ld      b,0
-        ld      c,70h
-find_next:
-        in      a,(c)
-        cp      0F7h
-        jr      z,find_found
-        inc     c
-        inc     b
-        ld      a,b
-        cp      6
-        jr      nz,find_next
-        scf
-        ret
-find_found:
-        ld      a,b
-        add     a,a
-        add     a,a
-        add     a,a
-        add     a,a
-        ld      (port_data),a
-        inc     a
-        ld      (port_control),a
-        add     a,8
-        ld      (port_baud),a
-        or      a
-        ret
-
-; Reset the chip (three zeros and a reset command leave it waiting for the mode in any
-; state), then the mode (8 bits, 1 stop bit, 16 times the baud rate), the baud rate and the
-; command (transmit, receive, DTR, RTS, clear the errors).
-setup_line:
-        ld      a,(port_control)
-        ld      c,a
-        xor     a
-        out     (c),a
-        out     (c),a
-        out     (c),a
-        ld      a,40h
-        out     (c),a
-        ld      a,4Eh
-        out     (c),a
-        ld      a,37h
-        out     (c),a
-        ld      a,(port_baud)
-        ld      c,a
-        ld      a,(baud_code)
-        out     (c),a
-        ret
-
-; Send the byte A.
-tx_byte:
-        ld      b,a
-        ld      a,(port_control)
-        ld      c,a
-tx_wait:
-        in      a,(c)
-        and     1
-        jr      z,tx_wait
-        ld      a,(port_data)
-        ld      c,a
-        ld      a,b
-        out     (c),a
-        ret
-
-; A byte from the line within about A * 0.8 seconds. Carry on a timeout.
-rx_byte:
-        ld      (rx_seconds),a
-rx_second:
-        ld      hl,0
-rx_poll:
-        ld      a,(port_control)
-        ld      c,a
-        in      a,(c)
-        and     2
-        jr      nz,rx_have
-        dec     hl
-        ld      a,h
-        or      l
-        jr      nz,rx_poll
-        ld      a,(rx_seconds)
-        dec     a
-        ld      (rx_seconds),a
-        jr      nz,rx_second
-        scf
-        ret
-rx_have:
-        ld      a,(port_data)
-        ld      c,a
-        in      a,(c)
-        or      a
-        ret
-
-; Throw away what comes until the line has been quiet for a second.
-purge:
-        ld      a,1
-        call    rx_byte
-        jr      nc,purge
         ret
 
 ; ---------- the block ----------
@@ -295,7 +192,7 @@ receive_made:
         ld      (expected),a
         ld      a,TRIES
         ld      (tries),a
-        call    purge
+        call    sio_purge
 ; Ask the sender to start: C or NAK, until something comes.
 receive_ask:
         ld      a,(flag_crc)
@@ -304,9 +201,9 @@ receive_ask:
         jr      z,receive_ask_send
         ld      a,CRC_REQUEST
 receive_ask_send:
-        call    tx_byte
+        call    sio_tx
         ld      a,4
-        call    rx_byte
+        call    sio_rx_wait
         jr      nc,receive_header
         ld      hl,tries
         dec     (hl)
@@ -314,7 +211,7 @@ receive_ask_send:
         jp      transfer_failed
 receive_next:
         ld      a,12
-        call    rx_byte
+        call    sio_rx_wait
         jr      c,receive_timeout
 receive_header:
         cp      SOH
@@ -329,11 +226,11 @@ receive_timeout:
         dec     (hl)
         jp      z,transfer_failed
         ld      a,NAK
-        call    tx_byte
+        call    sio_tx
         jr      receive_next
 receive_end:
         ld      a,ACK
-        call    tx_byte
+        call    sio_tx
         ld      de,fcb
         ld      c,16
         call    BDOS
@@ -347,11 +244,11 @@ receive_done:
 ; The block number, its complement, the data and the check.
 receive_block:
         ld      a,2
-        call    rx_byte
+        call    sio_rx_wait
         jp      c,receive_bad
         ld      (block_number),a
         ld      a,2
-        call    rx_byte
+        call    sio_rx_wait
         jp      c,receive_bad
         ld      (block_inverse),a
         ld      hl,block_data
@@ -360,7 +257,7 @@ receive_data:
         push    hl
         push    bc
         ld      a,2
-        call    rx_byte
+        call    sio_rx_wait
         pop     bc
         pop     hl
         jp      c,receive_bad
@@ -368,14 +265,14 @@ receive_data:
         inc     hl
         djnz    receive_data
         ld      a,2
-        call    rx_byte
+        call    sio_rx_wait
         jp      c,receive_bad
         ld      (received),a
         ld      a,(flag_crc)
         or      a
         jr      z,receive_verify
         ld      a,2
-        call    rx_byte
+        call    sio_rx_wait
         jp      c,receive_bad
         ld      (received+1),a
 receive_verify:
@@ -411,9 +308,9 @@ receive_checked:
         cp      b
         jr      z,receive_ack
         ld      a,CAN
-        call    tx_byte
+        call    sio_tx
         ld      a,CAN
-        call    tx_byte
+        call    sio_tx
         jp      transfer_failed
 receive_write:
         ld      de,block_data
@@ -425,9 +322,9 @@ receive_write:
         or      a
         jr      z,receive_written
         ld      a,CAN
-        call    tx_byte
+        call    sio_tx
         ld      a,CAN
-        call    tx_byte
+        call    sio_tx
         call    abandon_file
         ld      de,msg_full
         jp      print
@@ -438,15 +335,15 @@ receive_ack:
         ld      a,TRIES
         ld      (tries),a
         ld      a,ACK
-        call    tx_byte
+        call    sio_tx
         jp      receive_next
 receive_bad:
-        call    purge
+        call    sio_purge
         ld      hl,tries
         dec     (hl)
         jp      z,transfer_failed
         ld      a,NAK
-        call    tx_byte
+        call    sio_tx
         jp      receive_next
 
 ; ---------- send ----------
@@ -463,13 +360,13 @@ send_opened:
         ld      (fcb+32),a
         ld      a,1
         ld      (block_number),a
-        call    purge
+        call    sio_purge
 ; Wait for the receiver to ask: NAK for the checksum, C for the CRC.
         ld      a,TRIES
         ld      (tries),a
 send_wait:
         ld      a,75
-        call    rx_byte
+        call    sio_rx_wait
         jr      c,send_wait_failed
         cp      NAK
         jr      z,send_checksum
@@ -501,19 +398,19 @@ send_next_block:
         ld      (tries),a
 send_again:
         ld      a,SOH
-        call    tx_byte
+        call    sio_tx
         ld      a,(block_number)
-        call    tx_byte
+        call    sio_tx
         ld      a,(block_number)
         xor     0FFh
-        call    tx_byte
+        call    sio_tx
         ld      hl,block_data
         ld      b,128
 send_data:
         push    hl
         push    bc
         ld      a,(hl)
-        call    tx_byte
+        call    sio_tx
         pop     bc
         pop     hl
         inc     hl
@@ -522,16 +419,16 @@ send_data:
         or      a
         jr      nz,send_check_crc
         ld      a,(check)
-        call    tx_byte
+        call    sio_tx
         jr      send_answer
 send_check_crc:
         ld      a,(check+1)
-        call    tx_byte
+        call    sio_tx
         ld      a,(check)
-        call    tx_byte
+        call    sio_tx
 send_answer:
         ld      a,12
-        call    rx_byte
+        call    sio_rx_wait
         jr      c,send_retry
         cp      ACK
         jr      z,send_acknowledged
@@ -551,9 +448,9 @@ send_eot:
         ld      (tries),a
 send_eot_again:
         ld      a,EOT
-        call    tx_byte
+        call    sio_tx
         ld      a,12
-        call    rx_byte
+        call    sio_rx_wait
         jr      c,send_eot_retry
         cp      ACK
         jr      z,send_done
@@ -592,6 +489,7 @@ abandon_file:
         include "cpm_fcb.asm"
         include "cpm_args.asm"
         include "cpm_io.asm"
+        include "adv_sio.asm"
         include "decimal.asm"
 
 msg_usage:      defm "Usage: XMODEM -s|-r [-c] [-b] [-f] [d:]file",13,10,'$'
