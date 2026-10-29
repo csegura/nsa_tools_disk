@@ -57,7 +57,7 @@ main_run:
 usage:  ld      de,msg_usage
         jp      print
 
-; -o ORG, -s START (hexadecimal), -n COUNT (decimal), -f out and -r (replace the file out)
+; -o ORG, -s START (hexadecimal, with or without 0x), -n COUNT (decimal), -f out and -r (replace the file out)
 tool_option:
         cp      'R'
         jr      nz,option_not_r
@@ -81,22 +81,19 @@ option_not_r:
         call    parse_decimal
         ret     c
         ld      (count),de
-        or      a
-        ret
+        jr      option_done
 option_org:
         call    hex_word
         ret     c
         ld      (origin),de
         ld      a,1
         ld      (origin_given),a
-        or      a
-        ret
+        jr      option_done
 option_start:
         call    hex_word
         ret     c
         ld      (start_offset),de
-        or      a
-        ret
+        jr      option_done
 option_file:
         call    next_word
         ret     c
@@ -105,7 +102,9 @@ option_file:
         call    parse_fcb
         ld      a,1
         ld      (flag_out),a
-        or      a
+option_done:
+        xor     a
+        ld      (word+2),a              ; the word is now the value: the letters of the option end here
         ret
 
 ; The next word as a hexadecimal number in DE; carry when it is not.
@@ -115,6 +114,17 @@ hex_word:
         ld      hl,word
         ld      de,0
         ld      b,0
+        ld      a,(hl)                  ; a 0x prefix (the CCP makes it 0X) is allowed
+        cp      '0'
+        jr      nz,hex_next
+        inc     hl
+        ld      a,(hl)
+        cp      'X'
+        jr      z,hex_prefix
+        dec     hl
+        jr      hex_next
+hex_prefix:
+        inc     hl
 hex_next:
         ld      a,(hl)
         or      a

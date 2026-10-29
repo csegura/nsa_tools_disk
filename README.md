@@ -7,6 +7,7 @@ The time goes on, and after many years using linux, I still enjoy tinkering with
 
 - [VI](#vi) - a mini vi text editor for CP/M 2.2 (there ius also a VT100 version)
 - [TERM](#term-a-serial-terminal) - serial terminal - An amazing simple terminal 
+- [RCON](#rcon-the-console-on-the-serial-line) - use the NSA from another computer (a remote operator, for example through the WiFi-232 modem API)
 - [URUN](#urun-a-program-from-another-user-area) - run a program from another user area
 - [NSADB](#nsadb-a-debugger) - a full-screen source-level debugger for the NorthStar Advantage
 - [MKDBG](#mkdbg-the-debug-file-made-on-the-machine) - create a debug file from the Microsoft M80 listing on the machine
@@ -128,7 +129,9 @@ the format of the listing and the tests.
 
 ## TERM: a serial terminal
 
-`TINFO [-t]` shows the system and the boards (the six slot ids, the serial board and its status) and
+`TINFO [-t]` shows, on one screen, a memory map (64 blocks of 1 KB: TPA, CP/M, and ROM or bad memory), the
+CP/M addresses and the size of the TPA, the current drive (allocation vector, parameter block, block size),
+the video data block of the Advantage, the boards in the six slots and the serial board with its status, and
 tests the serial line, for when `TERM` or `XMODEM` do not work on the machine. `TERM [-b rate] [-d bits] [-p N|E|O] [-s stops] [-x] [-e] [-h]` connects the Advantage to another computer through the serial board
 (a Raspberry Pi that runs `getty` on a USB-to-RS232 cable, for example): the keys go to the line and what
 comes from the line is shown on the screen, 23 rows of 80 columns and a status line, with the part of
@@ -138,6 +141,17 @@ keys do local commands (F1 rate, F2 send ESC, F3 send Ctrl-C, F4 clear, F5 echo,
 table is at the top of the source and can be changed); Ctrl-[ sends ESC. It was tested with the emulator
 only (a script plays the Pi), so the cable and the speed of the real machine are not checked. See
 [docs/term.md](docs/term.md) for the keys, the setup of the Pi and the cable.
+
+## RCON: the console on the serial line
+
+`RCON [-b rate] [-d bits] [-p N|E|O] [-s stops] [-o|-m]` puts the console of CP/M on the serial board
+(9600 8N1 unless an option says other): a program on another computer types commands and reads the answers,
+as if it were at the keyboard of the NSA. It was made for the [WiFi-232 modem](https://github.com/csegura/esp_modem),
+whose HTTP API (`tools/terminal.py`) types into the device on its RS232 port and reads what the device prints, so a
+script or an agent can operate the NSA from the network. RCON stays in memory below the CCP; `RCON -u` removes it,
+`-o` makes the console the line only. `HEXOUT file` and `HEXIN file` send and receive a file as lines of Intel HEX
+through the same line (a point answers each good line). The bytes of the line are read by polling, so
+type one line and wait for its answer. See [docs/rcon.md](docs/rcon.md). Tested only with the emulator.
 
 ## LS and LESS
 
@@ -221,6 +235,7 @@ src/urun/      URUN, a launcher for a program of another user area
 src/nsadb/     NSADB, the debugger (docs/nsadb.md)
 src/mkdbg/     MKDBG, the debug file from an M80 listing (docs/mkdbg.md)
 src/term/      TERM, a serial terminal (docs/term.md)
+src/rcon/      RCON, the console of CP/M on the serial board for a remote operator (docs/rcon.md)
 src/ls/        LS, a directory listing
 src/less/      LESS, a pager for the Advantage
 src/tools/     CAT WC HEAD TAIL GREP CRLF CMP DIFF DF RM CP MV DIS XMODEM (docs/tools.md)
@@ -300,6 +315,8 @@ and `/` ignore a count. The notes after the table give the details.
 | Delete | `x` | delete the character under the cursor (never the line break) | yes |
 | Delete | `dd` | delete the line, and keep it for pasting | yes |
 | Delete | `dw`, `dW` | delete to the start of the next word, not past the end of the line | yes |
+| Delete | `d$` | delete to the end of the line (as `D`; a count is ignored) | no |
+| Delete | `d0` | delete from the start of the line up to the cursor (a count is ignored) | no |
 | Delete | `D` | delete to the end of the line | no |
 | Change | `cw`, `cW` | change to the end of the word, then Insert | yes |
 | Change | `C` | change to the end of the line, then Insert | no |
@@ -349,8 +366,8 @@ a count for `u`.
   the current line; `p` pastes below it and `P` pastes above it, with the
   cursor on the first pasted line. `dw` (`dW`) deletes to the start of the
   next word, but not past the end of the line; `cw` (`cW`) changes to the end
-  of the word, without the blanks after it. `D` deletes to the end of the
-  line; `C` deletes to the end and enters Insert mode. `r<char>` replaces the
+  of the word, without the blanks after it. `d$` and `D` delete to the end of the
+  line, `d0` deletes from the start of the line up to the cursor; `C` deletes to the end and enters Insert mode. `r<char>` replaces the
   character at the cursor; `J` joins the current line to the next with a
   separating space when needed. `n` repeats the last forward search; `ZZ`
   saves and exits.

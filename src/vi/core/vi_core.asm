@@ -82,9 +82,19 @@ main_read_key:
         ld      a,(last_key)
         cp      'd'
         jr      z,delete_line_pending
+        cp      '$'
+        jr      z,delete_line_end_pending
+        cp      '0'
+        jr      z,delete_line_head_pending
         call    word_mode_key
         jr      nz,dispatch_normal
         call    delete_word
+        jp      main_loop
+delete_line_end_pending:
+        call    delete_line_tail
+        jp      main_loop
+delete_line_head_pending:
+        call    delete_line_head
         jp      main_loop
 delete_line_pending:
         ld      hl,(repeat_times)
@@ -1272,6 +1282,15 @@ close_gap_moved:
 
 delete_to_line_end:
         jp      delete_line_tail
+
+; d0: delete from the start of the line up to the cursor.
+delete_line_head:
+        ld      hl,(cursor)
+        ld      (word_end),hl
+        call    move_line_start
+        ld      hl,(cursor)
+        ld      (word_start),hl
+        jp      delete_word_range_ready
 
 change_to_line_end:
         call    delete_line_tail
